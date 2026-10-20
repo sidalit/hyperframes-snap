@@ -1,0 +1,163 @@
+name: hyperframes
+base: core26
+adopt-info: hyperframes
+title: HyperFrames
+summary: Create, preview and render HTML video compositions
+description: |
+  HyperFrames creates HTML video compositions, previews them in a browser-based
+  Studio, and renders videos locally with Chromium and FFmpeg. This snap bundles
+  the command-line application and Studio web interface.
+
+  Create a project with hyperframes init my-video, preview it with
+  hyperframes preview my-video, and render it with hyperframes render my-video.
+license: Apache-2.0
+grade: stable
+confinement: strict
+website: https://hyperframes.heygen.com
+source-code: https://github.com/heygen-com/hyperframes
+issues: https://github.com/heygen-com/hyperframes/issues
+contact: https://github.com/sidalit/hyperframes-snap/issues
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  hyperframes:
+    command: bin/hyperframes
+    plugs:
+      - home
+      - network
+      - network-bind
+      - browser-support
+      - opengl
+      - desktop
+      - removable-media
+    environment:
+      PATH: $SNAP/bin:$SNAP/usr/bin:$PATH
+      LD_LIBRARY_PATH: $SNAP_LIBRARY_PATH:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      HYPERFRAMES_BROWSER_PATH: $SNAP/bin/chrome-headless-shell
+      PRODUCER_HEADLESS_SHELL_PATH: $SNAP/bin/chrome-headless-shell
+      HYPERFRAMES_FFMPEG_PATH: $SNAP/usr/bin/ffmpeg
+      HYPERFRAMES_FFPROBE_PATH: $SNAP/usr/bin/ffprobe
+      HYPERFRAMES_SKIP_SKILLS: '1'
+      HYPERFRAMES_NO_UPDATE_CHECK: '1'
+      HYPERFRAMES_NO_AUTO_INSTALL: '1'
+
+layout:
+  /etc/fonts:
+    bind: $SNAP/etc/fonts
+  /usr/share/fonts:
+    bind: $SNAP/usr/share/fonts
+  /usr/share/fontconfig:
+    bind: $SNAP/usr/share/fontconfig
+
+parts:
+  hyperframes:
+    plugin: nil
+    source: https://github.com/heygen-com/hyperframes.git
+    # renovate: depName=heygen-com/hyperframes
+    source-tag: 'v0.8.181'
+    build-snaps:
+      - node/24/stable
+    build-packages:
+      - ca-certificates
+      - curl
+      - git
+      - build-essential
+      - patchelf
+      - python3
+    stage-packages:
+      - libstdc++6
+    build-environment:
+      - PUPPETEER_SKIP_DOWNLOAD: 'true'
+    override-pull: |
+      craftctl default
+      version=$(python3 -c 'import json; print(json.load(open("packages/cli/package.json"))["version"])')
+      craftctl set version="$version"
+    override-build: |
+      npm install --global --prefix "$CRAFT_PART_BUILD/.bun" bun@1.4.3
+      export PATH="$CRAFT_PART_BUILD/.bun/bin:$PATH"
+      bun install --frozen-lockfile
+
+      # Build in upstream dependency order, including the Studio web assets.
+      bun run --filter '@hyperframes/{parsers,lint,studio-server}' build
+      bun run --filter @hyperframes/core build
+      bun run --filter '@hyperframes/{engine,producer,player,studio,shader-transitions,aws-lambda,gcp-cloud-run,sdk,inspector}' build
+      bun run --filter @hyperframes/cli build
+
+      # Install only the CLI's production dependencies outside the workspace.
+      app="$CRAFT_PART_INSTALL/share/hyperframes"
+      mkdir -p "$app"
+      cp -a packages/cli/bin packages/cli/dist packages/cli/package.json "$app/"
+      python3 - "$app/package.json" <<'PYTHON'
+      import json
+      import sys
+      from pathlib import Path
+      path = Path(sys.argv[1])
+      manifest = {key: value for key, value in json.loads(path.read_text()).items()
+                  if key not in {"devDependencies", "scripts"}}
+      path.write_text(json.dumps(manifest, indent=2) + "\n")
+      PYTHON
+      npm install --prefix "$app" --omit=dev --no-audit --no-fund
+
+      # Keep npm available for optional packages cached by HyperFrames at runtime.
+      install -Dm755 /snap/node/current/bin/node "$CRAFT_PART_INSTALL/bin/node"
+      patchelf --remove-rpath "$CRAFT_PART_INSTALL/bin/node"
+      mkdir -p "$CRAFT_PART_INSTALL/lib/node_modules"
+      cp -a /snap/node/current/lib/node_modules/npm "$CRAFT_PART_INSTALL/lib/node_modules/"
+      ln -s ../lib/node_modules/npm/bin/npm-cli.js "$CRAFT_PART_INSTALL/bin/npm"
+      ln -s ../lib/node_modules/npm/bin/npx-cli.js "$CRAFT_PART_INSTALL/bin/npx"
+      node_version=$(/snap/node/current/bin/node --version)
+      mkdir -p "$CRAFT_PART_INSTALL/share/doc/node"
+      curl --fail --location --retry 3 \
+        "https://raw.githubusercontent.com/nodejs/node/$node_version/LICENSE" \
+        --output "$CRAFT_PART_INSTALL/share/doc/node/LICENSE"
+      install -Dm644 LICENSE "$CRAFT_PART_INSTALL/share/doc/hyperframes/LICENSE"
+
+  chromium:
+    plugin: nil
+    build-packages:
+      - ca-certificates
+      - curl
+      - unzip
+    stage-packages:
+      - ffmpeg
+      - fontconfig
+      - fonts-dejavu-core
+      - fonts-liberation
+      - fonts-noto-core
+      - fonts-noto-cjk
+      - fonts-noto-color-emoji
+      - libasound2t64
+      - libgbm1
+      - libgtk-3-0t64
+      - libnss3
+      - libcurl4t64
+      - libudev1
+      - libxcb1
+    override-build: |
+      version=155.0.8059.84
+      case "$CRAFT_ARCH_BUILD_FOR" in
+        amd64)
+          platform=linux64
+          checksum=a5d71b91aa996fef00517cd212b2dfb816b43055edefbe727e6fd562d4ae1f9c
+          ;;
+        arm64)
+          platform=linux-arm64
+          checksum=0c83c2520b513835c712590781adbdbcab4c14ca04d4809be5055ff2c8937a51
+          ;;
+        *) echo "Unsupported architecture: $CRAFT_ARCH_BUILD_FOR" >&2; exit 1 ;;
+      esac
+      archive="chrome-headless-shell-$platform.zip"
+      curl --fail --location --retry 3 \
+        "https://storage.googleapis.com/chrome-for-testing-public/$version/$platform/$archive" \
+        --output "$archive"
+      printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check
+      unzip -q "$archive"
+      mkdir -p "$CRAFT_PART_INSTALL/lib"
+      cp -a "chrome-headless-shell-$platform" "$CRAFT_PART_INSTALL/lib/chromium"
+
+  launcher:
+    plugin: dump
+    source: snap/local

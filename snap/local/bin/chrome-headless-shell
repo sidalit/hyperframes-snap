@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+# Snap confinement supplies isolation; use the snap's private temporary files.
+exec "$SNAP/lib/chromium/chrome-headless-shell" \
+  --no-sandbox --disable-dev-shm-usage "$@"

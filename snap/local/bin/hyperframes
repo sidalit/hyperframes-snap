@@ -7,4 +7,4 @@ export XDG_CONFIG_HOME="$SNAP_USER_COMMON/.config"
 export XDG_DATA_HOME="$SNAP_USER_COMMON/.local/share"
 mkdir -p "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
 
-exec "$SNAP/bin/node" "$SNAP/share/hyperframes/bin/hyperframes.mjs" "$@"
+exec "$SNAP/bin/node" "$SNAP/lib/node_modules/@hyperframes/cli/bin/hyperframes.mjs" "$@"

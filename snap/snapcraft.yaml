@@ -54,9 +54,12 @@ layout:
 
 parts:
   hyperframes:
-    plugin: nil
+    plugin: npm
+    npm-include-node: true
+    npm-node-version: '24'
     source: https://github.com/heygen-com/hyperframes.git
     source-tag: v$SNAPCRAFT_PROJECT_VERSION
+    source-subdir: packages/cli
     build-snaps:
       - node/24/stable
     build-packages:
@@ -64,7 +67,6 @@ parts:
       - curl
       - git
       - build-essential
-      - patchelf
       - python3
     stage-packages:
       - libstdc++6
@@ -73,41 +75,13 @@ parts:
     override-build: |
       npm install --global --prefix "$CRAFT_PART_BUILD/.bun" bun@1.4.3
       export PATH="$CRAFT_PART_BUILD/.bun/bin:$PATH"
-      bun install --frozen-lockfile
+      NODE_ENV=development bun install --frozen-lockfile
+      bun run build
 
-      # Build in upstream dependency order, including the Studio web assets.
-      bun run --filter '@hyperframes/{parsers,lint,studio-server}' build
-      bun run --filter @hyperframes/core build
-      bun run --filter '@hyperframes/{engine,producer,player,studio,shader-transitions,aws-lambda,gcp-cloud-run,sdk,inspector}' build
-      bun run --filter @hyperframes/cli build
-
-      # Install only the CLI's production dependencies outside the workspace.
-      app="$CRAFT_PART_INSTALL/share/hyperframes"
-      mkdir -p "$app"
-      cp -a packages/cli/bin packages/cli/dist packages/cli/package.json "$app/"
-      python3 - "$app/package.json" <<'PYTHON'
-      import json
-      import sys
-      from pathlib import Path
-      path = Path(sys.argv[1])
-      manifest = {key: value for key, value in json.loads(path.read_text()).items()
-                  if key not in {"devDependencies", "scripts"}}
-      path.write_text(json.dumps(manifest, indent=2) + "\n")
-      PYTHON
-      npm install --prefix "$app" --omit=dev --no-audit --no-fund
-
-      # Keep npm available for optional packages cached by HyperFrames at runtime.
-      install -Dm755 /snap/node/current/bin/node "$CRAFT_PART_INSTALL/bin/node"
-      patchelf --remove-rpath "$CRAFT_PART_INSTALL/bin/node"
-      mkdir -p "$CRAFT_PART_INSTALL/lib/node_modules"
-      cp -a /snap/node/current/lib/node_modules/npm "$CRAFT_PART_INSTALL/lib/node_modules/"
-      ln -s ../lib/node_modules/npm/bin/npm-cli.js "$CRAFT_PART_INSTALL/bin/npm"
-      ln -s ../lib/node_modules/npm/bin/npx-cli.js "$CRAFT_PART_INSTALL/bin/npx"
-      node_version=$(/snap/node/current/bin/node --version)
-      mkdir -p "$CRAFT_PART_INSTALL/share/doc/node"
-      curl --fail --location --retry 3 \
-        "https://raw.githubusercontent.com/nodejs/node/$node_version/LICENSE" \
-        --output "$CRAFT_PART_INSTALL/share/doc/node/LICENSE"
+      # The npm plugin packages the built CLI and includes Node/npm for runtime use.
+      craftctl default
+      # The launcher part supplies the command with writable snap-owned paths.
+      rm "$CRAFT_PART_INSTALL/bin/hyperframes"
       install -Dm644 LICENSE "$CRAFT_PART_INSTALL/share/doc/hyperframes/LICENSE"
 
   chromium:

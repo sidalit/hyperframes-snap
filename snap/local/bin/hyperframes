@@ -7,4 +7,21 @@ export XDG_CONFIG_HOME="$SNAP_USER_COMMON/.config"
 export XDG_DATA_HOME="$SNAP_USER_COMMON/.local/share"
 mkdir -p "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
 
+case "${1:-}" in
+  ''|--desktop|hyperframes-signin:*|hyperframes-open:*)
+    if [ -x "$SNAP/opt/hyperframes/HyperFrames" ]; then
+      [ "${1:-}" != --desktop ] || shift
+      export HYPERFRAMES_DESKTOP_DATA="$XDG_CONFIG_HOME/HyperFrames"
+      export HYPERFRAMES_PROJECTS_ROOT="${HYPERFRAMES_PROJECTS_ROOT:-$SNAP_REAL_HOME/HyperFrames}"
+      unset APPIMAGE
+      # Snap confinement supplies isolation for the Electron desktop runtime.
+      exec "$SNAP/opt/hyperframes/HyperFrames" --no-sandbox "$@"
+    fi
+    if [ "$#" -gt 0 ]; then
+      echo 'The HyperFrames desktop application is available on amd64 only.' >&2
+      exit 1
+    fi
+    ;;
+esac
+
 exec "$SNAP/bin/node" "$SNAP/lib/node_modules/@hyperframes/cli/bin/hyperframes.mjs" "$@"

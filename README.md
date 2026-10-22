@@ -18,6 +18,15 @@ snapcraft pack
 
 ```bash
 sudo snap install hyperframes
+sudo snap connect hyperframes:password-manager-service   # desktop sign-in and API keys
+hyperframes
+```
+
+On amd64, open **HyperFrames** from the application menu or run `hyperframes` to launch the desktop app. Projects default to `~/HyperFrames`.
+
+The command-line tools remain available on both architectures:
+
+```bash
 hyperframes init my-video --example blank
 cd my-video
 hyperframes preview
@@ -28,18 +37,19 @@ Open the local URL printed by the preview. After editing your composition, stop 
 ```bash
 hyperframes render --output output.mp4
 sudo snap connect hyperframes:removable-media   # optional: /media, /mnt
+sudo snap connect hyperframes:audio-record      # optional: microphone recording
 ```
 
 ## Known limitations
 
 - Projects and media must be in a non-hidden home folder or connected removable storage.
+- The desktop application is available on amd64 only; arm64 includes the command-line tools.
 - Docker rendering, arbitrary host programs, Whisper compilation and AWS Lambda/GCP deployment are not supported.
-- User state lives under `~/snap/hyperframes/common`. The application and bundled browser update through snapd.
-- Automatic integration with host AI agents is unavailable. Only open compositions you trust.
+- User state lives under `~/snap/hyperframes/common`. Configure agents and credentials inside the snap; existing host installations and the desktop app's host-terminal shortcuts are unavailable.
 
 ## Update to a new upstream release
 
-Change `version` in `snap/snapcraft.yaml`, then rebuild.
+Change `version` in `snap/snapcraft.yaml`, then rebuild. The desktop build is pinned separately in the `desktop` part; update its download URL and checksum together.
 
 ## Automation
 
@@ -47,4 +57,4 @@ Builds, publishing, and dependency updates use [snap-automation](https://github.
 
 ## License
 
-The packaging is MIT-licensed (see `LICENSE`). Hyperframes is Apache-2.0-licensed; its dependencies carry their own licenses.
+The packaging is MIT-licensed (see `LICENSE`). The Hyperframes CLI and framework are Apache-2.0-licensed. The desktop bundle and its dependencies retain their upstream licensing and notices.

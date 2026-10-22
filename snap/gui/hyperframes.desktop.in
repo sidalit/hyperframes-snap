@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=HyperFrames
+Comment=Create and edit HTML video compositions
+Exec=hyperframes --desktop %U
+Icon=${SNAP}/meta/gui/hyperframes.png
+Terminal=false
+Categories=AudioVideo;Video;
+StartupWMClass=hyperframes_hyperframes
+MimeType=x-scheme-handler/hyperframes-signin;x-scheme-handler/hyperframes-open;

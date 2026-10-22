@@ -22,3 +22,4 @@ SOFTWARE.
 
 This license covers only the snap packaging files in this repository.
 hyperframes itself, its dependencies and the base snap keep their own licenses.
+The upstream HyperFrames desktop icon is not covered by this packaging license.

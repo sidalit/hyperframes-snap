@@ -4,9 +4,10 @@ version: '0.8.185'
 title: HyperFrames
 summary: Create, preview and render HTML video compositions
 description: |
-  HyperFrames creates HTML video compositions, previews them in a browser-based
-  Studio, and renders videos locally with Chromium and FFmpeg. This snap bundles
-  the command-line application and Studio web interface.
+  HyperFrames creates HTML video compositions and renders videos locally with
+  Chromium and FFmpeg. On amd64, launch HyperFrames from the application menu
+  to use the desktop Studio. The command-line application and browser-based
+  Studio are available on both amd64 and arm64.
 
   Create a project with hyperframes init my-video, preview it with
   hyperframes preview my-video, and render it with hyperframes render my-video.
@@ -25,17 +26,21 @@ platforms:
 apps:
   hyperframes:
     command: bin/hyperframes
+    extensions: [gnome]
     plugs:
       - home
       - network
       - network-bind
       - browser-support
-      - opengl
-      - desktop
+      - audio-playback
+      - audio-record
+      - password-manager-service
       - removable-media
     environment:
       PATH: $SNAP/bin:$SNAP/usr/bin:$PATH
       LD_LIBRARY_PATH: $SNAP_LIBRARY_PATH:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      GIT_EXEC_PATH: $SNAP/usr/lib/git-core
+      GIT_TEMPLATE_DIR: $SNAP/usr/share/git-core/templates
       HYPERFRAMES_BROWSER_PATH: $SNAP/bin/chrome-headless-shell
       PRODUCER_HEADLESS_SHELL_PATH: $SNAP/bin/chrome-headless-shell
       HYPERFRAMES_FFMPEG_PATH: $SNAP/usr/bin/ffmpeg
@@ -85,11 +90,19 @@ parts:
       install -Dm644 LICENSE "$CRAFT_PART_INSTALL/share/doc/hyperframes/LICENSE"
 
   chromium:
-    plugin: nil
-    build-packages:
-      - ca-certificates
-      - curl
-      - unzip
+    plugin: dump
+    source:
+      - to amd64: https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/linux64/chrome-headless-shell-linux64.zip
+      - to arm64: https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.84/linux-arm64/chrome-headless-shell-linux-arm64.zip
+    source-type: zip
+    source-checksum:
+      - to amd64: sha256/a5d71b91aa996fef00517cd212b2dfb816b43055edefbe727e6fd562d4ae1f9c
+      - to arm64: sha256/0c83c2520b513835c712590781adbdbcab4c14ca04d4809be5055ff2c8937a51
+    organize:
+      - to amd64:
+          chrome-headless-shell-linux64: lib/chromium
+      - to arm64:
+          chrome-headless-shell-linux-arm64: lib/chromium
     stage-packages:
       - ffmpeg
       - fontconfig
@@ -105,27 +118,47 @@ parts:
       - libcurl4t64
       - libudev1
       - libxcb1
-    override-build: |
-      version=155.0.8059.84
-      case "$CRAFT_ARCH_BUILD_FOR" in
-        amd64)
-          platform=linux64
-          checksum=a5d71b91aa996fef00517cd212b2dfb816b43055edefbe727e6fd562d4ae1f9c
-          ;;
-        arm64)
-          platform=linux-arm64
-          checksum=0c83c2520b513835c712590781adbdbcab4c14ca04d4809be5055ff2c8937a51
-          ;;
-        *) echo "Unsupported architecture: $CRAFT_ARCH_BUILD_FOR" >&2; exit 1 ;;
-      esac
-      archive="chrome-headless-shell-$platform.zip"
-      curl --fail --location --retry 3 \
-        "https://storage.googleapis.com/chrome-for-testing-public/$version/$platform/$archive" \
-        --output "$archive"
-      printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check
-      unzip -q "$archive"
-      mkdir -p "$CRAFT_PART_INSTALL/lib"
-      cp -a "chrome-headless-shell-$platform" "$CRAFT_PART_INSTALL/lib/chromium"
+
+  desktop:
+    plugin: nil
+    # The desktop has its own release stream, separate from the CLI version.
+    source:
+      - to amd64: https://static.heygen.ai/hyperframes-oss/desktop/HyperFrames-amd64.deb
+    source-type: deb
+    # add source-checksum once deb are stable
+    build-packages:
+      - to amd64:
+          - jq
+          - patchelf
+    stage-packages:
+      - to amd64:
+          - ca-certificates
+          - curl
+          - git
+          - libsecret-1-0
+    override-build:
+      - to amd64: |
+          cp -a "$CRAFT_PART_SRC/opt" "$CRAFT_PART_INSTALL/"
+          install -Dm644 "$CRAFT_PROJECT_DIR/snap/gui/hyperframes.desktop.in" \
+            "$CRAFT_PART_INSTALL/meta/gui/hyperframes.desktop"
+          desktop="$CRAFT_PART_INSTALL/opt/hyperframes"
+          rm "$desktop/chrome-sandbox"
+
+          # No build SHA disables the desktop's updater; snap refresh owns updates.
+          jq 'del(.HFBuildSha)' "$desktop/resources/build.json" > build.json
+          install -m644 build.json "$desktop/resources/build.json"
+
+          # Match snapd's desktop entry for window icons and grouping.
+          jq '.desktopName = "hyperframes_hyperframes.desktop"' \
+            "$desktop/resources/app.asar.unpacked/package.json" > package.json
+          install -m644 package.json "$desktop/resources/app.asar.unpacked/package.json"
+
+          # Agent installers strip LD_LIBRARY_PATH; GNOME supplies some shared libraries.
+          triplet="$CRAFT_ARCH_TRIPLET_BUILD_FOR"
+          gnome_runtime='$ORIGIN/../../gnome-platform'
+          patchelf --force-rpath --set-rpath \
+            "\$ORIGIN/../lib/$triplet:$gnome_runtime/usr/lib/$triplet:$gnome_runtime/usr/lib:$gnome_runtime/lib/$triplet" \
+            "$CRAFT_PART_INSTALL/usr/bin/curl"
 
   launcher:
     plugin: dump

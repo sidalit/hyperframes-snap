@@ -15,8 +15,12 @@ license: Apache-2.0
 grade: stable
 confinement: strict
 website: https://hyperframes.heygen.com
-source-code: https://github.com/heygen-com/hyperframes
-issues: https://github.com/heygen-com/hyperframes/issues
+source-code:
+  - https://github.com/heygen-com/hyperframes
+  - https://github.com/sidalit/hyperframes-snap
+issues:
+  - https://github.com/heygen-com/hyperframes/issues
+  - https://github.com/sidalit/hyperframes-snap/issues
 contact: https://github.com/sidalit/hyperframes-snap/issues
 
 platforms:

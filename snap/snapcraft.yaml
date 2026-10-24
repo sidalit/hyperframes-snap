@@ -1,6 +1,6 @@
 name: hyperframes
 base: core26
-version: '0.8.191'
+version: '0.8.193'
 title: HyperFrames
 summary: Create, preview and render HTML video compositions
 description: |

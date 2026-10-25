@@ -2,6 +2,7 @@ name: hyperframes
 base: core26
 version: '0.8.193'
 title: HyperFrames
+icon: snap/gui/hyperframes.png
 summary: Create, preview and render HTML video compositions
 description: |
   HyperFrames creates HTML video compositions and renders videos locally with

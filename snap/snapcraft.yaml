@@ -63,7 +63,17 @@ layout:
     bind: $SNAP/usr/share/fontconfig
 
 parts:
+  bun:
+    plugin: nil
+    build-snaps:
+      - node/24/stable
+    override-build: |
+      npm install --global --prefix "$CRAFT_PART_INSTALL" bun@1.4.3
+    prime:
+      - -*
+
   hyperframes:
+    after: [bun]
     plugin: npm
     npm-include-node: true
     npm-node-version: '24'
@@ -83,8 +93,7 @@ parts:
     build-environment:
       - PUPPETEER_SKIP_DOWNLOAD: 'true'
     override-build: |
-      npm install --global --prefix "$CRAFT_PART_BUILD/.bun" bun@1.4.3
-      export PATH="$CRAFT_PART_BUILD/.bun/bin:$PATH"
+      export PATH="$CRAFT_STAGE/bin:$PATH"
       NODE_ENV=development bun install --frozen-lockfile
       bun run build
 

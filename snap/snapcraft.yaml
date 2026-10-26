@@ -15,7 +15,7 @@ description: |
 license: Apache-2.0
 grade: stable
 confinement: strict
-website: https://hyperframes.heygen.com
+website: https://www.hyperframes.dev/
 source-code:
   - https://github.com/heygen-com/hyperframes
   - https://github.com/sidalit/hyperframes-snap

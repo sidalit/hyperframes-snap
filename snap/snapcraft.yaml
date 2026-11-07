@@ -88,8 +88,6 @@ parts:
       - git
       - build-essential
       - python3
-    stage-packages:
-      - libstdc++6
     build-environment:
       - PUPPETEER_SKIP_DOWNLOAD: 'true'
     override-build: |
@@ -118,20 +116,28 @@ parts:
       - to arm64:
           chrome-headless-shell-linux-arm64: lib/chromium
     stage-packages:
-      - ffmpeg
-      - fontconfig
-      - fonts-dejavu-core
-      - fonts-liberation
-      - fonts-noto-core
       - fonts-noto-cjk
-      - fonts-noto-color-emoji
-      - libasound2t64
-      - libgbm1
       - libgtk-3-0t64
-      - libnss3
-      - libcurl4t64
-      - libudev1
-      - libxcb1
+
+  chromium-runtime:
+    plugin: nil
+    stage-slices:
+      - ffmpeg_bins
+      - ffmpeg_conf
+      - fontconfig_bins
+      - fonts-dejavu-core_config
+      - fonts-liberation_fonts
+      - fonts-noto-core_fonts
+      - fonts-noto-core_config
+      - fonts-noto-color-emoji_fonts
+      - libasound2t64_libs
+      - libgbm1_libs
+      - libnss3_libs
+      - libcurl4t64_libs
+      - libxcb1_libs
+    stage:
+      - -lib
+      - -lib64
 
   desktop:
     plugin: nil

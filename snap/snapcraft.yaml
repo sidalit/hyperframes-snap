@@ -68,7 +68,7 @@ parts:
     build-snaps:
       - node/24/stable
     override-build: |
-      npm install --global --prefix "$CRAFT_PART_INSTALL" bun@1.4.3
+      npm install --global --prefix "$CRAFT_PART_INSTALL" bun@1.4.4
     prime:
       - -*
 
